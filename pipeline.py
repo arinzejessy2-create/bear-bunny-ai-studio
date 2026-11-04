@@ -1,7 +1,8 @@
-import os, json, subprocess, asyncio, re, time
+import os, json, subprocess, asyncio, re, textwrap, math
 from pathlib import Path
 from typing import Callable
-import httpx
+from PIL import Image, ImageDraw, ImageFont
+from gtts import gTTS
 
 def run(cmd):
     p = subprocess.run(cmd, capture_output=True, text=True)
@@ -9,135 +10,121 @@ def run(cmd):
         raise RuntimeError((p.stderr or p.stdout)[-2500:])
     return p.stdout
 
+def font(size, bold=False):
+    paths = ["/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf" if bold else "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"]
+    for p in paths:
+        if Path(p).exists(): return ImageFont.truetype(p, size)
+    return ImageFont.load_default()
+
 async def generate_story(idea, req):
-    """Uses an OpenAI-compatible chat endpoint when configured."""
     base = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1").rstrip("/")
     key = os.getenv("OPENAI_API_KEY")
-    model = os.getenv("TEXT_MODEL", "gpt-4o-mini")
-    if not key:
-        return {
-          "title":"Bear & Bunny and the Mysterious Door",
-          "description":"Join Bear and Bunny on a magical forest adventure.",
-          "hashtags":["#BearAndBunny","#KidsStories","#3DAnimation"],
-          "scenes":[
-            {"n":1,"duration":12,"narration":"One bright morning, Bear and Bunny explored a quiet forest. Then they noticed something strange between two ancient trees.","visual":"Wide cinematic shot of a lush enchanted forest, cute original brown bear and cream bunny walking together, a mysterious glowing door between ancient trees."},
-            {"n":2,"duration":12,"narration":"A tiny golden light danced around the door. Bunny stepped closer, while Bear held the map tightly.","visual":"Medium shot, cute cream bunny curiously approaching a small magical wooden door, friendly brown bear holding a folded map, warm golden particles."},
-            {"n":3,"duration":12,"narration":"The door opened with a gentle sparkle. Beyond it was a garden floating among the clouds.","visual":"The magical door opening to reveal a breathtaking floating garden in the clouds, Bear and Bunny reacting with wonder, cinematic 3D family animation."},
-            {"n":4,"duration":12,"narration":"Together, the friends crossed the doorway and discovered that the greatest magic was sharing an adventure.","visual":"Bear and Bunny holding paws and stepping into a colourful floating garden, joyful emotional ending, cinematic wide shot."}
-          ]
-        }
-    prompt = f"""Create a child-safe {req['duration_minutes']}-minute story for Bear & Bunny Adventures.
-Idea: {idea}
-Language: {req['language']}. Style: {req['style']}.
-Bear is a gentle, curious small brown bear. Bunny is a brave, playful cream-white rabbit.
-Keep their appearance, clothing and personalities consistent in every scene. No scary violence,
-no dangerous instructions, no copyrighted characters. Produce 8-20 scenes with short narration
-and a detailed visual prompt per scene. Return ONLY JSON:
-{{"title":"...","description":"...","hashtags":["..."],"scenes":[{{"n":1,"duration":10,"narration":"...","visual":"..."}}]}}
-The total scene duration should be close to {req['duration_minutes']*60} seconds."""
-    async with httpx.AsyncClient(timeout=180) as c:
-        r = await c.post(base+"/chat/completions", headers={"Authorization":f"Bearer {key}"},
-          json={"model":model,"messages":[{"role":"user","content":prompt}],"temperature":0.8})
-        r.raise_for_status()
-        content = r.json()["choices"][0]["message"]["content"]
-    content = re.sub(r"^\x60\x60\x60(?:json)?|\x60\x60\x60$", "", content.strip(), flags=re.M).strip()
-    data = json.loads(content)
-    if not data.get("scenes"): raise RuntimeError("The story model returned no scenes.")
-    return data
+    if key:
+        prompt = f"""Create a child-safe {req['duration_minutes']}-minute story for Bear & Bunny Adventures. Idea: {idea}. Language: {req['language']}. Bear is a gentle small brown bear; Bunny is a brave cream-white rabbit. Keep them consistent. Return ONLY JSON with title, description, hashtags, and scenes (each has n,duration,narration,visual). 4-8 scenes."""
+        async with httpx.AsyncClient(timeout=120) as c:
+            r = await c.post(base+"/chat/completions",headers={"Authorization":f"Bearer {key}"},json={"model":os.getenv("TEXT_MODEL","gpt-4o-mini"),"messages":[{"role":"user","content":prompt}],"temperature":0.8})
+            r.raise_for_status()
+            raw=r.json()["choices"][0]["message"]["content"]
+        raw=re.sub(r"^\x60\x60\x60(?:json)?|\x60\x60\x60$","",raw.strip(),flags=re.M).strip()
+        return json.loads(raw)
+    subject = idea.strip().rstrip(".!?")
+    scenes = [
+      {"n":1,"duration":8,"narration":f"One sunny morning, Bear and Bunny set off on an adventure. They had heard a curious story about {subject}, and they couldn't wait to find out more.","visual":"sunny beginning"},
+      {"n":2,"duration":8,"narration":"Along the winding forest path, they found a little clue. Bear wanted to think carefully, but Bunny was already hopping ahead with excitement.","visual":"discovering a clue"},
+      {"n":3,"duration":8,"narration":"Suddenly, something unexpected happened. The friends worked together, shared their ideas, and discovered that being brave is easier when you help each other.","visual":"teamwork and discovery"},
+      {"n":4,"duration":8,"narration":"As the sun began to set, Bear and Bunny headed home smiling. Their biggest treasure wasn't what they found. It was the wonderful adventure they shared.","visual":"happy sunset ending"}
+    ]
+    return {"title":"Bear & Bunny: "+subject[:55],"description":"A cheerful Bear & Bunny adventure about curiosity, courage and friendship.","hashtags":["#BearAndBunny","#KidsStories","#Friendship"],"scenes":scenes}
 
 async def make_voice(text, destination, voice):
-    key = os.getenv("OPENAI_API_KEY")
-    if not key:
-        raise RuntimeError("Narration needs OPENAI_API_KEY or a configured self-hosted TTS service. See SETUP.md.")
-    base = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1").rstrip("/")
-    async with httpx.AsyncClient(timeout=300) as c:
-        r = await c.post(base+"/audio/speech", headers={"Authorization":f"Bearer {key}"},
-          json={"model":os.getenv("TTS_MODEL","gpt-4o-mini-tts"),"voice":os.getenv("TTS_VOICE","coral"),
-                "input":text,"instructions":voice,"response_format":"mp3"})
-        r.raise_for_status()
-        Path(destination).write_bytes(r.content)
+    # Free online text-to-speech; no API key or subscription required.
+    gTTS(text=text, lang="en", slow=False).save(str(destination))
 
-async def render_scene_comfy(prompt, destination, scene_index):
-    server = os.getenv("COMFYUI_URL","").rstrip("/")
-    workflow_file = os.getenv("COMFYUI_WORKFLOW","workflows/wan_api_workflow.json")
-    if not server:
-        raise RuntimeError("Animation engine is not connected. Add a ComfyUI server and Wan workflow; see SETUP.md.")
-    wf_path = Path(workflow_file)
-    if not wf_path.is_absolute(): wf_path = Path(__file__).parent / wf_path
-    if not wf_path.exists():
-        raise RuntimeError(f"Wan workflow file not found: {wf_path}. Export an API-format workflow from ComfyUI.")
-    workflow = json.loads(wf_path.read_text())
-    node_id = os.getenv("WAN_PROMPT_NODE_ID")
-    input_name = os.getenv("WAN_PROMPT_INPUT","text")
-    if not node_id or node_id not in workflow:
-        raise RuntimeError("Set WAN_PROMPT_NODE_ID to the text-prompt node in your ComfyUI workflow.")
-    workflow[node_id]["inputs"][input_name] = prompt
-    async with httpx.AsyncClient(timeout=60) as c:
-        queued = await c.post(server+"/prompt", json={"prompt":workflow})
-        queued.raise_for_status()
-        prompt_id = queued.json()["prompt_id"]
-        for _ in range(1800):
-            await asyncio.sleep(2)
-            hist = await c.get(server+f"/history/{prompt_id}")
-            hist.raise_for_status()
-            item = hist.json().get(prompt_id)
-            if item and item.get("outputs"):
-                for node in item["outputs"].values():
-                    for key in ("videos","gifs"):
-                        for entry in node.get(key,[]):
-                            params = {"filename":entry["filename"],"subfolder":entry.get("subfolder",""),
-                                      "type":entry.get("type","output")}
-                            media = await c.get(server+"/view",params=params)
-                            media.raise_for_status()
-                            Path(destination).write_bytes(media.content)
-                            return
-        raise RuntimeError("Wan generation timed out. Check the ComfyUI server and GPU.")
+def draw_scene(path, index, idea, scene):
+    W,H=1280,720
+    palettes=[("#86c8ed","#e8f5ff"),("#79b8a0","#d9efc9"),("#f4bd70","#fce7b8"),("#e98f72","#f8d5a9")]
+    top,bottom=palettes[(index-1)%len(palettes)]
+    im=Image.new("RGB",(W,H)); pix=im.load()
+    import PIL.ImageColor as IC
+    a,b=IC.getrgb(top),IC.getrgb(bottom)
+    for y in range(H):
+        t=y/(H-1); col=tuple(int(a[k]*(1-t)+b[k]*t) for k in range(3))
+        for x in range(W): pix[x,y]=col
+    d=ImageDraw.Draw(im)
+    # rolling hills, trees and storybook scenery
+    d.ellipse((-180,420,700,900),fill="#72a96b"); d.ellipse((500,390,1450,900),fill="#8fbd76")
+    for x,y,s in [(130,360,1),(1080,340,.9),(950,420,.65),(270,430,.6)]:
+        d.rectangle((int(x-12*s),int(y),int(x+12*s),650),fill="#80563b")
+        d.ellipse((int(x-75*s),int(y-100*s),int(x+75*s),int(y+55*s)),fill="#397d55")
+        d.ellipse((int(x-55*s),int(y-145*s),int(x+55*s),int(y-30*s)),fill="#4b9561")
+    # glowing story object
+    cx,cy=640,300
+    d.ellipse((cx-85,cy-85,cx+85,cy+85),fill="#fff2a8",outline="#fffbd5",width=8)
+    d.ellipse((cx-55,cy-55,cx+55,cy+55),fill="#ffd76a")
+    # bear character
+    def bear(x,y):
+        d.ellipse((x-78,y-160,x-22,y-104),fill="#87502f",outline="#4e3024",width=5)
+        d.ellipse((x+22,y-160,x+78,y-104),fill="#87502f",outline="#4e3024",width=5)
+        d.ellipse((x-92,y-145,x+92,y+55),fill="#a96c42",outline="#4e3024",width=6)
+        d.ellipse((x-57,y-68,x+57,y+15),fill="#d9a77e")
+        d.ellipse((x-35,y-105,x-18,y-86),fill="#201b18"); d.ellipse((x+18,y-105,x+35,y-86),fill="#201b18")
+        d.ellipse((x-12,y-58,x+12,y-42),fill="#30201a")
+        d.arc((x-28,y-55,x+28,y-15),0,180,fill="#57352b",width=4)
+        d.rounded_rectangle((x-75,y+35,x+75,y+175),radius=48,fill="#b8794c",outline="#4e3024",width=6)
+    def bunny(x,y):
+        d.ellipse((x-65,y-245,x-5,y-100),fill="#fff3df",outline="#a99a86",width=5)
+        d.ellipse((x+5,y-245,x+65,y-100),fill="#fff3df",outline="#a99a86",width=5)
+        d.ellipse((x-88,y-150,x+88,y+55),fill="#fff8e9",outline="#a99a86",width=6)
+        d.ellipse((x-55,y-72,x+55,y+10),fill="#efddc6")
+        d.ellipse((x-34,y-110,x-18,y-90),fill="#28211d"); d.ellipse((x+18,y-110,x+34,y-90),fill="#28211d")
+        d.ellipse((x-10,y-58,x+10,y-44),fill="#e88e9b")
+        d.rounded_rectangle((x-72,y+38,x+72,y+175),radius=48,fill="#f4eee4",outline="#a99a86",width=6)
+    bear(430,455); bunny(820,455)
+    # Caption panel and readable scene title
+    d.rounded_rectangle((45,35,1235,145),radius=28,fill="#17334acc",outline="#ffffff",width=3)
+    title=["A wonderful new day","A curious discovery","Friends solve it together","A happy ending"][index-1]
+    d.text((W//2,90),title,font=font(43,True),fill="white",anchor="mm",stroke_width=1,stroke_fill="#29425b")
+    d.text((W//2,660),"BEAR & BUNNY ADVENTURES",font=font(22,True),fill="white",anchor="mm",stroke_width=2,stroke_fill="#385b43")
+    im.save(path,quality=94)
 
 def srt_time(seconds):
-    ms = int(seconds*1000); h=ms//3600000; ms%=3600000; m=ms//60000; ms%=60000; s=ms//1000; ms%=1000
+    ms=int(seconds*1000); h=ms//3600000; ms%=3600000; m=ms//60000; ms%=60000; s=ms//1000; ms%=1000
     return f"{h:02}:{m:02}:{s:02},{ms:03}"
 
-def make_srt(scenes, path):
+def make_srt(scenes,path):
     t=0; lines=[]
     for i,sc in enumerate(scenes,1):
-        d=float(sc.get("duration",10))
-        lines += [str(i), f"{srt_time(t)} --> {srt_time(t+d)}", sc["narration"], ""]
-        t += d
-    Path(path).write_text("\n".join(lines), encoding="utf-8")
+        d=float(sc.get("duration",8)); lines += [str(i),f"{srt_time(t)} --> {srt_time(t+d)}",sc["narration"],""]; t+=d
+    Path(path).write_text("\n".join(lines),encoding="utf-8")
 
-async def run_production(job_id, req, out_root: Path, progress: Callable):
-    job = out_root / job_id
-    job.mkdir(parents=True, exist_ok=True)
-    progress("Writing story",5,"Writing the adventure and planning scenes...")
-    story = await generate_story(req["idea"], req)
-    (job/"story.json").write_text(json.dumps(story,indent=2),encoding="utf-8")
-    scenes = story["scenes"]
-    progress("Narration",12,"Creating character narration...")
-    narration = " ".join(s["narration"] for s in scenes)
-    await make_voice(narration, job/"narration.mp3", req["voice_style"])
-    progress("Animation",20,"Sending scene prompts to the connected Wan animation engine...")
+async def render_scene_comfy(prompt,destination,scene_index):
+    raise RuntimeError("The free storybook renderer is active. Paid or self-hosted GPU animation is not required.")
+
+async def run_production(job_id,req,out_root:Path,progress:Callable):
+    job=out_root/job_id; job.mkdir(parents=True,exist_ok=True)
+    progress("Writing story",5,"Creating your story without paid AI services...")
+    story=await generate_story(req["idea"],req)
+    scenes=story["scenes"]; (job/"story.json").write_text(json.dumps(story,indent=2),encoding="utf-8")
+    progress("Narration",15,"Creating free narration...")
+    narration=" ".join(s["narration"] for s in scenes)
+    await make_voice(narration,job/"narration.mp3",req.get("voice_style","warm storyteller"))
     clips=[]
     for i,sc in enumerate(scenes,1):
-        progress("Animation",20+int(55*i/len(scenes)),f"Animating scene {i} of {len(scenes)}...")
-        p = f"{req['style']}. {sc['visual']} Consistent characters: Bear, a gentle small brown bear; Bunny, a playful cream-white rabbit. Same character designs across all scenes. Child-friendly."
+        progress("Illustration",20+int(48*i/len(scenes)),f"Drawing Bear & Bunny scene {i} of {len(scenes)}...")
+        image=job/f"scene_{i:02}.jpg"; draw_scene(image,i,req["idea"],sc)
         clip=job/f"scene_{i:02}.mp4"
-        await render_scene_comfy(p,clip,i)
+        run(["ffmpeg","-y","-loop","1","-i",str(image),"-t",str(sc.get("duration",8)),"-vf","scale=1280:720,zoompan=z='min(zoom+0.0005,1.04)':d=1:s=1280x720:fps=24,format=yuv420p","-r","24","-c:v","libx264","-preset","ultrafast","-crf","25",str(clip)])
         clips.append(clip)
-    progress("Editing",80,"Assembling scenes, narration and subtitles...")
-    concat=job/"clips.txt"
-    concat.write_text("\n".join(f"file '{p.as_posix()}'" for p in clips))
+    progress("Editing",75,"Adding narration, movement and subtitles...")
+    concat=job/"clips.txt"; concat.write_text("\n".join(f"file '{p.as_posix()}'" for p in clips))
     silent=job/"joined.mp4"
     run(["ffmpeg","-y","-f","concat","-safe","0","-i",str(concat),"-c","copy",str(silent)])
     final=job/"bear_bunny_final.mp4"
     if req.get("subtitles"):
         make_srt(scenes,job/"captions.srt")
-        subtitle_path = str(job / "captions.srt").replace(":", "\\:")
+        subtitle_path=str(job/"captions.srt").replace(":","\\:")
         vf=f"subtitles={subtitle_path}:force_style='FontName=DejaVu Sans,FontSize=22,PrimaryColour=&H00FFFFFF,OutlineColour=&H00101010,BorderStyle=1,Outline=3,Shadow=1,Alignment=2,MarginV=45'"
     else: vf="format=yuv420p"
-    run(["ffmpeg","-y","-i",str(silent),"-i",str(job/"narration.mp3"),"-vf",vf,
-         "-map","0:v:0","-map","1:a:0","-shortest","-c:v","libx264","-preset","veryfast",
-         "-crf","21","-c:a","aac","-b:a","192k","-movflags","+faststart",str(final)])
-    progress("Packaging",95,"Preparing YouTube title, description and tags...")
-    return {"video_path":str(final),"title":story.get("title","Bear & Bunny Adventures"),
-            "description":story.get("description",""),"hashtags":story.get("hashtags",[]),
-            "story_path":str(job/"story.json"),"note":"Thumbnail generation and direct YouTube upload are not enabled in this build."}
+    run(["ffmpeg","-y","-i",str(silent),"-i",str(job/"narration.mp3"),"-vf",vf,"-map","0:v:0","-map","1:a:0","-shortest","-c:v","libx264","-preset","ultrafast","-crf","24","-c:a","aac","-b:a","128k","-movflags","+faststart",str(final)])
+    progress("Packaging",95,"Preparing your YouTube details...")
+    return {"video_path":str(final),"title":story.get("title","Bear & Bunny Adventures"),"description":story.get("description",""),"hashtags":story.get("hashtags",[]),"story_path":str(job/"story.json"),"note":"Free storybook-motion mode. No paid credits or API key needed. Full cinematic AI video requires a GPU service."}
