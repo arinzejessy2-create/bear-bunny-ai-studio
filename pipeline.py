@@ -30,12 +30,22 @@ async def generate_story(idea, req):
         raw=re.sub(r"^\x60\x60\x60(?:json)?|\x60\x60\x60$","",raw.strip(),flags=re.M).strip()
         return json.loads(raw)
     subject = idea.strip().rstrip(".!?")
-    scenes = [
-      {"n":1,"duration":8,"narration":f"One sunny morning, Bear and Bunny set off on an adventure. They had heard a curious story about {subject}, and they couldn't wait to find out more.","visual":"sunny beginning"},
-      {"n":2,"duration":8,"narration":"Along the winding forest path, they found a little clue. Bear wanted to think carefully, but Bunny was already hopping ahead with excitement.","visual":"discovering a clue"},
-      {"n":3,"duration":8,"narration":"Suddenly, something unexpected happened. The friends worked together, shared their ideas, and discovered that being brave is easier when you help each other.","visual":"teamwork and discovery"},
-      {"n":4,"duration":8,"narration":"As the sun began to set, Bear and Bunny headed home smiling. Their biggest treasure wasn't what they found. It was the wonderful adventure they shared.","visual":"happy sunset ending"}
+    # No-key mode still creates a complete narration sized for the requested runtime.
+    beats = [
+      ("opening", f"On a bright morning, Bear and Bunny heard a surprising rumour about {subject}. They looked at each other, packed a tiny bag, and decided to investigate together."),
+      ("clue", "At the edge of the forest, they noticed a trail of unusual little marks. Bear studied the pattern while Bunny searched nearby and spotted the next clue."),
+      ("obstacle", "The path soon became difficult. A fallen branch blocked their way, and a chilly breeze rustled the trees. For a moment, both friends wondered what to do."),
+      ("teamwork", "Bear used his strength carefully while Bunny found a safe route around the obstacle. They encouraged each other, remembering that two different talents can make one great team."),
+      ("discovery", "Beyond the trees, a hidden surprise waited for them. It was not quite what they expected, but it was even more wonderful because they had found it together."),
+      ("twist", "Just then, they heard a soft sound nearby. Bunny froze, but Bear gently reminded her that being brave does not mean never feeling afraid."),
+      ("solution", "They followed the sound and discovered someone who needed help. Without arguing about who should go first, Bear and Bunny quickly worked out a kind solution."),
+      ("ending", "When the adventure was over, the friends walked home beneath the glowing evening sky. They knew the best part was not the treasure, but helping one another.")
     ]
+    count = max(4, int(req.get("duration_minutes", 1)) * 4)
+    scenes = []
+    for i in range(count):
+        kind, narration = beats[i % len(beats)]
+        scenes.append({"n": i+1, "duration": 15, "narration": narration, "visual": kind + " in a colourful storybook forest"})
     return {"title":"Bear & Bunny: "+subject[:55],"description":"A cheerful Bear & Bunny adventure about curiosity, courage and friendship.","hashtags":["#BearAndBunny","#KidsStories","#Friendship"],"scenes":scenes}
 
 async def make_voice(text, destination, voice):
@@ -125,6 +135,13 @@ async def run_production(job_id,req,out_root:Path,progress:Callable):
     progress("Narration",15,"Creating free narration...")
     narration=" ".join(s["narration"] for s in scenes)
     await make_voice(narration,job/"narration.mp3",req.get("voice_style","warm storyteller"))
+    # Use the actual narration duration as the edit clock so -shortest cannot
+    # silently truncate a video whose estimated scene timings exceed its audio.
+    probe = json.loads(run(["ffprobe","-v","error","-show_entries","format=duration","-of","json",str(job/"narration.mp3")]))
+    audio_seconds = max(1.0, float(probe["format"]["duration"]))
+    weights = [max(1, len(str(s.get("narration","")).split())) for s in scenes]
+    total_words = sum(weights) or 1
+    for s,w in zip(scenes,weights): s["duration"] = audio_seconds * w / total_words
     clips=[]
     for i,sc in enumerate(scenes,1):
         progress("Illustration",20+int(48*i/len(scenes)),f"Drawing Bear & Bunny scene {i} of {len(scenes)}...")
