@@ -217,14 +217,11 @@ h3{font-size:14px;color:#a78bfa;letter-spacing:1px;margin:25px 0 12px}
     private fun togglePrivate() {
         val enabled = !prefs.getBoolean("private_mode", false)
         prefs.edit().putBoolean("private_mode", enabled).apply()
-        if (enabled) {
-            CookieManager.getInstance().removeAllCookies(null)
-            CookieManager.getInstance().flush()
-            web.clearHistory(); web.clearCache(true); web.clearFormData()
-            toast("Private mode on")
-        } else {
-            toast("Private mode off")
-        }
+        CookieManager.getInstance().removeAllCookies(null)
+        CookieManager.getInstance().flush()
+        web.clearHistory(); web.clearCache(true); web.clearFormData()
+        if (enabled) toast("Private mode on — local browsing data cleared")
+        else toast("Private mode off — private session data cleared")
         refreshStatus()
     }
 
