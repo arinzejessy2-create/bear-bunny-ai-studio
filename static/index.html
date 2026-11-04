@@ -54,7 +54,7 @@ async function createVideo(){
   if(!res.ok)throw new Error(await res.text());const data=await res.json();poll(data.job_id);
  }catch(e){fail(e.message);}
 }
-async function poll(id){
+async function poll(id,retries=0){
  try{
   const r=await fetch('/api/status/'+id);const j=await r.json();
   document.getElementById('stage').textContent=j.stage||'Working';
