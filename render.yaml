@@ -2,7 +2,7 @@ services:
   - type: web
     name: bear-bunny-ai-studio
     runtime: docker
-    plan: starter
+    plan: free
     dockerfilePath: ./Dockerfile
     healthCheckPath: /health
     autoDeploy: true
