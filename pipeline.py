@@ -123,7 +123,7 @@ async def run_production(job_id,req,out_root:Path,progress:Callable):
         progress("Illustration",20+int(48*i/len(scenes)),f"Drawing Bear & Bunny scene {i} of {len(scenes)}...")
         image=job/f"scene_{i:02}.jpg"; draw_scene(image,i,req["idea"],sc)
         clip=job/f"scene_{i:02}.mp4"
-        run(["ffmpeg","-y","-loop","1","-i",str(image),"-t",str(sc.get("duration",8)),"-vf","scale=1280:720,zoompan=z='min(zoom+0.0005,1.04)':d=1:s=1280x720:fps=24,format=yuv420p","-r","24","-c:v","libx264","-preset","ultrafast","-crf","25",str(clip)])
+        run(["ffmpeg","-y","-filter_threads","1","-threads","1","-loop","1","-i",str(image),"-t",str(sc.get("duration",8)),"-vf","scale=854:480,zoompan=z='min(zoom+0.0005,1.04)':d=1:s=854x480:fps=24,format=yuv420p","-r","24","-c:v","libx264","-threads","1","-preset","ultrafast","-crf","27",str(clip)])
         clips.append(clip)
     progress("Editing",75,"Adding narration, movement and subtitles...")
     concat=job/"clips.txt"; concat.write_text("\n".join(f"file '{p.as_posix()}'" for p in clips))
@@ -135,6 +135,6 @@ async def run_production(job_id,req,out_root:Path,progress:Callable):
         subtitle_path=str(job/"captions.srt").replace(":","\\:")
         vf=f"subtitles={subtitle_path}:force_style='FontName=DejaVu Sans,FontSize=22,PrimaryColour=&H00FFFFFF,OutlineColour=&H00101010,BorderStyle=1,Outline=3,Shadow=1,Alignment=2,MarginV=45'"
     else: vf="format=yuv420p"
-    run(["ffmpeg","-y","-i",str(silent),"-i",str(job/"narration.mp3"),"-vf",vf,"-map","0:v:0","-map","1:a:0","-shortest","-c:v","libx264","-preset","ultrafast","-crf","24","-c:a","aac","-b:a","128k","-movflags","+faststart",str(final)])
+    run(["ffmpeg","-y","-filter_threads","1","-filter_complex_threads","1","-threads","1","-i",str(silent),"-i",str(job/"narration.mp3"),"-vf",vf,"-map","0:v:0","-map","1:a:0","-shortest","-c:v","libx264","-threads","1","-preset","ultrafast","-crf","26","-c:a","aac","-b:a","96k","-movflags","+faststart",str(final)])
     progress("Packaging",95,"Preparing your YouTube details...")
     return {"video_path":str(final),"title":story.get("title","Bear & Bunny Adventures"),"description":story.get("description",""),"hashtags":story.get("hashtags",[]),"story_path":str(job/"story.json"),"note":"Free storybook-motion mode. No paid credits or API key needed. Full cinematic AI video requires a GPU service."}
