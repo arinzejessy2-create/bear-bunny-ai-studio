@@ -37,8 +37,17 @@ async def generate_story(idea, req):
     return {"title":"Bear & Bunny: "+subject[:55],"description":"A cheerful Bear & Bunny adventure about curiosity, courage and friendship.","hashtags":["#BearAndBunny","#KidsStories","#Friendship"],"scenes":scenes}
 
 async def make_voice(text, destination, voice):
-    # Free online text-to-speech; no API key or subscription required.
-    gTTS(text=text, lang="en", slow=False).save(str(destination))
+    # Try free online TTS first; if the network service is unavailable,
+    # fall back to the offline espeak-ng voice included in the container.
+    try:
+        gTTS(text=text, lang="en", slow=False).save(str(destination))
+        return
+    except Exception:
+        wav = Path(destination).with_suffix(".wav")
+        subprocess.run(["espeak-ng", "-v", "en", "-s", "155", "-w", str(wav), text],
+                       check=True, capture_output=True)
+        run(["ffmpeg", "-y", "-i", str(wav), "-codec:a", "libmp3lame", "-q:a", "4", str(destination)])
+        wav.unlink(missing_ok=True)
 
 def draw_scene(path, index, idea, scene):
     W,H=1280,720
