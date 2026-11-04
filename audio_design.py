@@ -62,9 +62,9 @@ def make_karaoke_ass(scenes, path, word_timings=None):
         for offset in range(0,len(clean),5):
             group=clean[offset:offset+5]
             start=group[0][1]; end=group[-1][2]
-            karaoke=" ".join("{\\\\k%d}%s"%(max(1,round((b-a)*100)),w.replace("{","(").replace("}",")")) for w,a,b in group)
+            karaoke=" ".join("{\\k%d}%s"%(max(1,round((b-a)*100)),w.replace("{","(").replace("}",")")) for w,a,b in group)
             lines.append(f"Dialogue: 0,{stamp(start)},{stamp(end)},Karaoke,,0,0,0,,{karaoke}")
-        Path(path).write_text("\\n".join(lines),encoding="utf-8")
+        Path(path).write_text("\n".join(lines),encoding="utf-8")
         return
     cursor=0.0
     for sc in scenes:
