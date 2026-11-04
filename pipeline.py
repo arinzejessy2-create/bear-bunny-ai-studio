@@ -1,4 +1,5 @@
 import os, json, subprocess, asyncio, re, textwrap, math
+import httpx
 from pathlib import Path
 from typing import Callable
 from PIL import Image, ImageDraw, ImageFont
