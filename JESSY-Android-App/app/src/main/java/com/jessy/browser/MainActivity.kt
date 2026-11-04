@@ -23,7 +23,7 @@ class MainActivity : Activity() {
     private lateinit var status: TextView
     private lateinit var progress: ProgressBar
     private val prefs by lazy { getSharedPreferences("jessy_private", Context.MODE_PRIVATE) }
-    private val mainExecutor: Executor by lazy { Executor { runOnUiThread(it) } }
+    private val uiExecutor: Executor by lazy { Executor { runOnUiThread(it) } }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -176,7 +176,7 @@ h3{font-size:14px;color:#a78bfa;letter-spacing:1px;margin:25px 0 12px}
                 } else {
                     try {
                         val config = ProxyConfig.Builder().addProxyRule("$h:$p").build()
-                        ProxyController.getInstance().setProxyOverride(config, mainExecutor) {
+                        ProxyController.getInstance().setProxyOverride(config, uiExecutor) {
                             prefs.edit().putString("proxy_host", h).putInt("proxy_port", p)
                                 .putString("proxy_label", country.text.toString().ifBlank { "Custom proxy" }).apply()
                             refreshStatus()
@@ -188,7 +188,7 @@ h3{font-size:14px;color:#a78bfa;letter-spacing:1px;margin:25px 0 12px}
             }
             .setNeutralButton("Disconnect") { _, _ ->
                 if (WebViewFeature.isFeatureSupported(WebViewFeature.PROXY_OVERRIDE)) {
-                    ProxyController.getInstance().clearProxyOverride(mainExecutor) {
+                    ProxyController.getInstance().clearProxyOverride(uiExecutor) {
                         prefs.edit().remove("proxy_host").remove("proxy_port").remove("proxy_label").apply()
                         refreshStatus(); toast("Proxy disconnected"); web.reload()
                     }
