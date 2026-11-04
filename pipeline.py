@@ -130,7 +130,9 @@ async def run_production(job_id,req,out_root:Path,progress:Callable):
         progress("Illustration",20+int(48*i/len(scenes)),f"Drawing Bear & Bunny scene {i} of {len(scenes)}...")
         image=job/f"scene_{i:02}.jpg"; draw_scene(image,i,req["idea"],sc)
         clip=job/f"scene_{i:02}.mp4"
-        run(["ffmpeg","-y","-filter_threads","1","-threads","1","-loop","1","-i",str(image),"-t",str(sc.get("duration",8)),"-vf","scale=854:480,zoompan=z='min(zoom+0.0005,1.04)':d=1:s=854x480:fps=24,format=yuv420p","-r","24","-c:v","libx264","-threads","1","-preset","ultrafast","-crf","27",str(clip)])
+        size="720:1280" if req.get("aspect_ratio")=="9:16" else "854:480"
+        vf=f"scale={size}:force_original_aspect_ratio=increase,crop={size},zoompan=z='min(zoom+0.0005,1.04)':d=1:s={size}:fps=24,format=yuv420p"
+        run(["ffmpeg","-y","-filter_threads","1","-threads","1","-loop","1","-i",str(image),"-t",str(sc.get("duration",8)),"-vf",vf,"-r","24","-c:v","libx264","-threads","1","-preset","ultrafast","-crf","27",str(clip)])
         clips.append(clip)
     progress("Editing",75,"Adding narration, movement and subtitles...")
     concat=job/"clips.txt"; concat.write_text("\n".join(f"file '{p.as_posix()}'" for p in clips))
