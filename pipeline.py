@@ -131,7 +131,8 @@ async def run_production(job_id, req, out_root: Path, progress: Callable):
     final=job/"bear_bunny_final.mp4"
     if req.get("subtitles"):
         make_srt(scenes,job/"captions.srt")
-        vf=f"subtitles={str(job/'captions.srt').replace(':','\\\\:')}:force_style='FontName=DejaVu Sans,FontSize=22,PrimaryColour=&H00FFFFFF,OutlineColour=&H00101010,BorderStyle=1,Outline=3,Shadow=1,Alignment=2,MarginV=45'"
+        subtitle_path = str(job / "captions.srt").replace(":", "\\:")
+        vf=f"subtitles={subtitle_path}:force_style='FontName=DejaVu Sans,FontSize=22,PrimaryColour=&H00FFFFFF,OutlineColour=&H00101010,BorderStyle=1,Outline=3,Shadow=1,Alignment=2,MarginV=45'"
     else: vf="format=yuv420p"
     run(["ffmpeg","-y","-i",str(silent),"-i",str(job/"narration.mp3"),"-vf",vf,
          "-map","0:v:0","-map","1:a:0","-shortest","-c:v","libx264","-preset","veryfast",
