@@ -41,7 +41,7 @@ def make_sound_bed(duration, music_path, sfx_path, scenes):
             buf.extend(q.to_bytes(2,"little",signed=True)*2)
         w.writeframes(bytes(buf))
 
-def make_karaoke_ass(scenes, path):
+def make_karaoke_ass(scenes, path, word_timings=None):
     """Readable bold karaoke captions; word timing is estimated from scene narration duration."""
     def stamp(sec):
         cs=max(0,int(round(sec*100))); h=cs//360000; cs%=360000
@@ -50,6 +50,22 @@ def make_karaoke_ass(scenes, path):
     lines=["[Script Info]","ScriptType: v4.00+","PlayResX: 1280","PlayResY: 720","ScaledBorderAndShadow: yes",
       "[V4+ Styles]","Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding",
       "Style: Karaoke,DejaVu Sans,54,&H00FFFFFF,&H0000D7FF,&H00101828,&H80000000,-1,0,1,4,2,2,70,70,62,1","[Events]","Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text"]
+    # Prefer real speech-provider word boundaries; use estimated timing only on fallback voices.
+    if word_timings:
+        clean=[]
+        for item in word_timings:
+            word=str(item.get("text","")).strip()
+            if word:
+                start=max(0.0,float(item.get("start",0)))
+                end=max(start+0.04,start+float(item.get("duration",0.12)))
+                clean.append((word,start,end))
+        for offset in range(0,len(clean),5):
+            group=clean[offset:offset+5]
+            start=group[0][1]; end=group[-1][2]
+            karaoke=" ".join("{\\\\k%d}%s"%(max(1,round((b-a)*100)),w.replace("{","(").replace("}",")")) for w,a,b in group)
+            lines.append(f"Dialogue: 0,{stamp(start)},{stamp(end)},Karaoke,,0,0,0,,{karaoke}")
+        Path(path).write_text("\\n".join(lines),encoding="utf-8")
+        return
     cursor=0.0
     for sc in scenes:
         dur=float(sc.get("duration",8)); words=str(sc.get("narration","")).split()
