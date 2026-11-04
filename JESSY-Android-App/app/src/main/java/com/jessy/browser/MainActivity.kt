@@ -29,7 +29,7 @@ class MainActivity : Activity() {
             text = "JESSY 🫟🫟"; textSize = 25f; setTextColor(-1); gravity = Gravity.CENTER; setPadding(4, 4, 4, 10)
         }
         address = EditText(this).apply {
-            hint = "Search or enter website"; singleLine = true; textSize = 16f
+            hint = "Search or enter website"; setSingleLine(true); textSize = 16f
             setTextColor(0xFF111827.toInt()); setHintTextColor(0xFF64748B.toInt())
             setPadding(14, 8, 14, 8); setBackgroundColor(-1); imeOptions = EditorInfo.IME_ACTION_GO
             setOnEditorActionListener { _, action, _ ->
@@ -61,14 +61,14 @@ class MainActivity : Activity() {
             webViewClient = object : WebViewClient() {
                 override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?) = false
                 override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
-                    address.setText(url ?: ""); progress.visibility = View.VISIBLE
+                    address.setText(url ?: ""); this@MainActivity.progress.visibility = View.VISIBLE
                 }
                 override fun onPageFinished(view: WebView?, url: String?) {
-                    address.setText(url ?: ""); progress.visibility = View.GONE
+                    address.setText(url ?: ""); this@MainActivity.progress.visibility = View.GONE
                 }
             }
             webChromeClient = object : WebChromeClient() {
-                override fun onProgressChanged(view: WebView?, value: Int) { progress.progress = value; progress.visibility = if (value == 100) View.GONE else View.VISIBLE }
+                override fun onProgressChanged(view: WebView?, value: Int) { this@MainActivity.progress.progress = value; this@MainActivity.progress.visibility = if (value == 100) View.GONE else View.VISIBLE }
             }
             setDownloadListener { url, agent, disposition, mime, _ ->
                 try {
