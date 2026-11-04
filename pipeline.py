@@ -81,7 +81,7 @@ def draw_scene(path, index, idea, scene):
         d.rounded_rectangle((x-72,y+38,x+72,y+175),radius=48,fill="#f4eee4",outline="#a99a86",width=6)
     bear(430,455); bunny(820,455)
     # Caption panel and readable scene title
-    d.rounded_rectangle((45,35,1235,145),radius=28,fill="#17334acc",outline="#ffffff",width=3)
+    d.rounded_rectangle((45,35,1235,145),radius=28,fill="#17334a",outline="#ffffff",width=3)
     title=["A wonderful new day","A curious discovery","Friends solve it together","A happy ending"][index-1]
     d.text((W//2,90),title,font=font(43,True),fill="white",anchor="mm",stroke_width=1,stroke_fill="#29425b")
     d.text((W//2,660),"BEAR & BUNNY ADVENTURES",font=font(22,True),fill="white",anchor="mm",stroke_width=2,stroke_fill="#385b43")
