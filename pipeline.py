@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Callable
 from PIL import Image, ImageDraw, ImageFont
 from gtts import gTTS
+from audio_design import make_sound_bed, make_karaoke_ass
 
 def run(cmd):
     p = subprocess.run(cmd, capture_output=True, text=True)
@@ -114,7 +115,13 @@ async def run_production(job_id,req,out_root:Path,progress:Callable):
     job=out_root/job_id; job.mkdir(parents=True,exist_ok=True)
     progress("Writing story",5,"Creating your story without paid AI services...")
     story=await generate_story(req["idea"],req)
-    scenes=story["scenes"]; (job/"story.json").write_text(json.dumps(story,indent=2),encoding="utf-8")
+    scenes=story["scenes"]
+    target_seconds=float(req.get("duration_minutes",3))*60
+    raw=[max(1.0,float(s.get("duration",8))) for s in scenes]
+    scale=target_seconds/sum(raw)
+    for s,d in zip(scenes,raw): s["duration"]=round(d*scale,2)
+    if scenes: scenes[-1]["duration"]=round(target_seconds-sum(float(s["duration"]) for s in scenes[:-1]),2)
+    (job/"story.json").write_text(json.dumps(story,indent=2),encoding="utf-8")
     progress("Narration",15,"Creating free narration...")
     narration=" ".join(s["narration"] for s in scenes)
     await make_voice(narration,job/"narration.mp3",req.get("voice_style","warm storyteller"))
@@ -130,11 +137,13 @@ async def run_production(job_id,req,out_root:Path,progress:Callable):
     silent=job/"joined.mp4"
     run(["ffmpeg","-y","-f","concat","-safe","0","-i",str(concat),"-c","copy",str(silent)])
     final=job/"bear_bunny_final.mp4"
+    music=job/"original_music.wav"; sfx=job/"scene_sfx.wav"
+    make_sound_bed(sum(float(s.get("duration",8)) for s in scenes),music,sfx,scenes)
     if req.get("subtitles"):
-        make_srt(scenes,job/"captions.srt")
-        subtitle_path=str(job/"captions.srt").replace(":","\\:")
-        vf=f"subtitles={subtitle_path}:force_style='FontName=DejaVu Sans,FontSize=22,PrimaryColour=&H00FFFFFF,OutlineColour=&H00101010,BorderStyle=1,Outline=3,Shadow=1,Alignment=2,MarginV=45'"
+        ass=job/"captions.ass"; make_karaoke_ass(scenes,ass)
+        vf="ass="+str(ass).replace(":","\\:")+",format=yuv420p"
     else: vf="format=yuv420p"
-    run(["ffmpeg","-y","-filter_threads","1","-filter_complex_threads","1","-threads","1","-i",str(silent),"-i",str(job/"narration.mp3"),"-vf",vf,"-map","0:v:0","-map","1:a:0","-shortest","-c:v","libx264","-threads","1","-preset","ultrafast","-crf","26","-c:a","aac","-b:a","96k","-movflags","+faststart",str(final)])
+    mix="[2:a]volume=0.22[music];[music][1:a]sidechaincompress=threshold=0.025:ratio=8:attack=25:release=650[ducked];[ducked][3:a]amix=inputs=2:duration=longest:weights=1 0.55:normalize=0[aout]"
+    run(["ffmpeg","-y","-filter_threads","1","-filter_complex_threads","1","-threads","1","-i",str(silent),"-i",str(job/"narration.mp3"),"-i",str(music),"-i",str(sfx),"-filter_complex",mix,"-vf",vf,"-map","0:v:0","-map","[aout]","-shortest","-c:v","libx264","-threads","1","-preset","ultrafast","-crf","26","-c:a","aac","-b:a","128k","-movflags","+faststart",str(final)])
     progress("Packaging",95,"Preparing your YouTube details...")
-    return {"video_path":str(final),"title":story.get("title","Bear & Bunny Adventures"),"description":story.get("description",""),"hashtags":story.get("hashtags",[]),"story_path":str(job/"story.json"),"note":"Free storybook-motion mode. No paid credits or API key needed. Full cinematic AI video requires a GPU service."}
+    return {"video_path":str(final),"title":story.get("title","Bear & Bunny Adventures"),"description":story.get("description",""),"hashtags":story.get("hashtags",[]),"story_path":str(job/"story.json"),"note":"Free storybook-motion mode with original generated background music, scene-aware sound accents, music ducking and bold karaoke-style captions. Cinematic AI footage requires an external GPU service."}
