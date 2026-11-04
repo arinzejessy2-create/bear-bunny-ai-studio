@@ -4,6 +4,10 @@ from pathlib import Path
 from typing import Callable
 from PIL import Image, ImageDraw, ImageFont
 from gtts import gTTS
+try:
+    import edge_tts
+except ImportError:
+    edge_tts = None
 from audio_design import make_sound_bed, make_karaoke_ass
 
 def run(cmd):
@@ -49,17 +53,40 @@ async def generate_story(idea, req):
     return {"title":"Bear & Bunny: "+subject[:55],"description":"A cheerful Bear & Bunny adventure about curiosity, courage and friendship.","hashtags":["#BearAndBunny","#KidsStories","#Friendship"],"scenes":scenes}
 
 async def make_voice(text, destination, voice):
-    # Try free online TTS first; if the network service is unavailable,
-    # fall back to the offline espeak-ng voice included in the container.
+    # Edge TTS is free to use and returns real word-boundary timestamps.
+    # Keep gTTS and espeak as fallbacks so a provider outage does not block rendering.
+    if edge_tts is not None:
+        try:
+            voice_name = "en-US-AriaNeural"
+            if "energetic" in str(voice).lower(): voice_name = "en-US-GuyNeural"
+            elif "gentle" in str(voice).lower() or "bedtime" in str(voice).lower(): voice_name = "en-US-JennyNeural"
+            communicate = edge_tts.Communicate(text, voice_name)
+            audio = bytearray()
+            boundaries = []
+            async for chunk in communicate.stream():
+                if chunk["type"] == "audio":
+                    audio.extend(chunk["data"])
+                elif chunk["type"] == "WordBoundary":
+                    boundaries.append({
+                        "text": chunk.get("text", ""),
+                        "start": float(chunk.get("offset", 0)) / 10_000_000,
+                        "duration": float(chunk.get("duration", 0)) / 10_000_000
+                    })
+            if audio and boundaries:
+                Path(destination).write_bytes(audio)
+                return boundaries
+        except Exception:
+            pass
     try:
         gTTS(text=text, lang="en", slow=False).save(str(destination))
-        return
+        return []
     except Exception:
         wav = Path(destination).with_suffix(".wav")
         subprocess.run(["espeak-ng", "-v", "en", "-s", "155", "-w", str(wav), text],
                        check=True, capture_output=True)
         run(["ffmpeg", "-y", "-i", str(wav), "-codec:a", "libmp3lame", "-q:a", "4", str(destination)])
         wav.unlink(missing_ok=True)
+        return []
 
 def draw_scene(path, index, idea, scene):
     W,H=1280,720
@@ -134,7 +161,7 @@ async def run_production(job_id,req,out_root:Path,progress:Callable):
     (job/"story.json").write_text(json.dumps(story,indent=2),encoding="utf-8")
     progress("Narration",15,"Creating free narration...")
     narration=" ".join(s["narration"] for s in scenes)
-    await make_voice(narration,job/"narration.mp3",req.get("voice_style","warm storyteller"))
+    word_timings = await make_voice(narration,job/"narration.mp3",req.get("voice_style","warm storyteller"))
     # Use the actual narration duration as the edit clock so -shortest cannot
     # silently truncate a video whose estimated scene timings exceed its audio.
     probe = json.loads(run(["ffprobe","-v","error","-show_entries","format=duration","-of","json",str(job/"narration.mp3")]))
@@ -162,7 +189,7 @@ async def run_production(job_id,req,out_root:Path,progress:Callable):
     music=job/"original_music.wav"; sfx=job/"scene_sfx.wav"
     make_sound_bed(sum(float(s.get("duration",8)) for s in scenes),music,sfx,scenes)
     if req.get("subtitles"):
-        ass=job/"captions.ass"; make_karaoke_ass(scenes,ass)
+        ass=job/"captions.ass"; make_karaoke_ass(scenes,ass,word_timings=word_timings)
         vf="ass="+str(ass).replace(":","\\:")+",format=yuv420p"
     else: vf="format=yuv420p"
     mix="[2:a]volume=0.22[music];[music][1:a]sidechaincompress=threshold=0.025:ratio=8:attack=25:release=650[ducked];[ducked][3:a]amix=inputs=2:duration=longest:weights=1 0.55:normalize=0[aout]"
