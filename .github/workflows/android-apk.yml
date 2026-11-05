@@ -17,12 +17,35 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
-      - name: Prepare AURA Music project
+      - name: Repair and unpack AURA source archive
         run: |
           rm -rf android
           mkdir -p android
-          base64 -d aura-source.zip.b64 > /tmp/aura-source.zip
-          unzip -q /tmp/aura-source.zip -d android
+          python3 - <<'PY'
+          import base64, io, zipfile
+          from pathlib import Path
+          s = Path("aura-source.zip.b64").read_text().strip()
+          if len(s) % 4:
+              repaired = None
+              for i in range(len(s)):
+                  candidate = s[:i] + s[i+1:]
+                  try:
+                      data = base64.b64decode(candidate, validate=True)
+                      with zipfile.ZipFile(io.BytesIO(data)) as z:
+                          if z.testzip() is None:
+                              repaired = data
+                              break
+                  except Exception:
+                      pass
+              if repaired is None:
+                  raise SystemExit("Could not repair source archive encoding")
+              Path("/tmp/aura-source.zip").write_bytes(repaired)
+          else:
+              Path("/tmp/aura-source.zip").write_bytes(base64.b64decode(s, validate=True))
+          with zipfile.ZipFile("/tmp/aura-source.zip") as z:
+              print("Archive check passed:", len(z.namelist()), "entries")
+              z.extractall("android")
+          PY
       - name: Build debug APK
         working-directory: android
         run: gradle assembleDebug --stacktrace
