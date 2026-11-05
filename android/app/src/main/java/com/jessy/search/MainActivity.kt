@@ -2,6 +2,9 @@ package com.jessy.search
 
 import android.annotation.SuppressLint
 import android.graphics.Color
+import android.net.Uri
+import androidx.activity.result.ActivityResultLauncher
+import androidx.activity.result.contract.ActivityResultContracts
 import android.os.Bundle
 import android.view.View
 import android.webkit.*
@@ -18,12 +21,18 @@ class MainActivity : ComponentActivity() {
     private lateinit var root: FrameLayout
     private val executor: Executor = Executors.newSingleThreadExecutor()
     private var showingError = false
+    private var fileChooserCallback: ValueCallback<Array<Uri>>? = null
+    private lateinit var videoPicker: ActivityResultLauncher<String>
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.statusBarColor = Color.rgb(7, 7, 11)
         window.navigationBarColor = Color.rgb(7, 7, 11)
+        videoPicker = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+            fileChooserCallback?.onReceiveValue(if (uri == null) null else arrayOf(uri))
+            fileChooserCallback = null
+        }
         root = FrameLayout(this)
         setContentView(root)
         createWebView()
@@ -44,7 +53,18 @@ class MainActivity : ComponentActivity() {
         web.settings.javaScriptCanOpenWindowsAutomatically = false
         web.settings.cacheMode = WebSettings.LOAD_DEFAULT
         web.addJavascriptInterface(Bridge(), "AndroidBridge")
-        web.webChromeClient = WebChromeClient()
+        web.webChromeClient = object : WebChromeClient() {
+            override fun onShowFileChooser(
+                webView: WebView?,
+                filePathCallback: ValueCallback<Array<Uri>>?,
+                fileChooserParams: FileChooserParams?
+            ): Boolean {
+                this@MainActivity.fileChooserCallback?.onReceiveValue(null)
+                this@MainActivity.fileChooserCallback = filePathCallback
+                videoPicker.launch("video/*")
+                return true
+            }
+        }
         web.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
                 val uri = request?.url ?: return true
