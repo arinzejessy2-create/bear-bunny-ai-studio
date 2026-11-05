@@ -2,6 +2,38 @@
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#05080e"><title>HEIGHT JOURNEY</title>
 <style>
 :root{--bg:#05080e;--panel:#0c1421;--line:#172b43;--blue:#168cff;--cyan:#56c7ff;--muted:#8ba2ba;--white:#eff7ff}*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 80% -10%,#0d3155 0,transparent 38%),var(--bg);color:var(--white);font:15px system-ui,-apple-system,Segoe UI,sans-serif;padding:0 0 92px}header{padding:26px 20px 18px}small,.muted{color:var(--muted)}.brand{font-size:12px;letter-spacing:.22em;color:var(--cyan);font-weight:800}.hero{font-size:29px;font-weight:900;line-height:1.05;margin:12px 0}.hero span{color:var(--blue)}.sub{color:var(--muted);line-height:1.5}.wrap{padding:0 16px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.card{background:linear-gradient(145deg,#101d2d,#0a111b);border:1px solid var(--line);border-radius:18px;padding:16px;margin-bottom:12px}.metric{font-size:28px;font-weight:900}.metric em{font-size:13px;color:var(--muted);font-style:normal}.section{font-size:17px;font-weight:800;margin:22px 2px 12px}.btn{border:0;border-radius:12px;padding:13px 16px;background:linear-gradient(100deg,#0875e8,#16a7ff);color:white;font-weight:800;font-size:14px;width:100%;margin-top:9px}.btn.secondary{background:#14273b;border:1px solid #244361;color:#d7edff}.btn.small{width:auto;padding:9px 12px}.row{display:flex;align-items:center;justify-content:space-between;gap:10px}.pill{font-size:11px;color:var(--cyan);border:1px solid #1e527d;border-radius:99px;padding:5px 9px}.tabs{position:fixed;bottom:0;left:0;right:0;background:#070d16f5;border-top:1px solid var(--line);display:flex;justify-content:space-around;padding:10px 3px max(10px,env(safe-area-inset-bottom));backdrop-filter:blur(15px)}.tabs button{background:none;border:0;color:#8298ae;font-weight:700;font-size:11px;padding:7px}.tabs button.active{color:var(--cyan)}input,select{background:#07101b;border:1px solid #24415d;border-radius:10px;color:white;padding:12px;width:100%;margin:6px 0;font:inherit}label{display:block;color:var(--muted);font-size:12px;margin-top:9px}.exercise{padding:13px 0;border-bottom:1px solid var(--line)}.exercise:last-child{border:0}.exercise strong{display:block}.timer{font-size:36px;font-weight:900;color:var(--cyan);text-align:center;margin:12px}.hidden{display:none}.progress{height:7px;background:#1b2b3b;border-radius:9px;overflow:hidden;margin-top:8px}.progress i{display:block;height:100%;background:linear-gradient(90deg,#0875e8,#5ad4ff)}.note{font-size:12px;color:#91a7bc;line-height:1.5}.check{accent-color:#168cff;width:18px;height:18px}.entry{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--line);font-size:13px}
+
+.demo{height:104px;margin-top:10px;border:1px solid #183b5b;border-radius:13px;background:radial-gradient(ellipse at center,#102944,#08111c);display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative}
+.demo svg{width:150px;height:94px;overflow:visible}
+.demo .floor{stroke:#31516e;stroke-width:2}
+.demo .person{stroke:#69caff;stroke-width:5;stroke-linecap:round;stroke-linejoin:round;fill:none}
+.demo .head{fill:#69caff;stroke:none}
+.demo .joint{transform-box:fill-box;transform-origin:center}
+.demo.walk .leg1{animation:stepA .7s ease-in-out infinite alternate;transform-origin:50px 61px}
+.demo.walk .leg2{animation:stepB .7s ease-in-out infinite alternate;transform-origin:50px 61px}
+.demo.walk .arm1{animation:stepB .7s ease-in-out infinite alternate;transform-origin:50px 37px}
+.demo.walk .arm2{animation:stepA .7s ease-in-out infinite alternate;transform-origin:50px 37px}
+.demo.bend .torso{animation:bend 2.2s ease-in-out infinite;transform-origin:50px 44px}
+.demo.bend .head{animation:headTilt 2.2s ease-in-out infinite;transform-origin:50px 22px}
+.demo.hold .torso{animation:breathe 2.5s ease-in-out infinite;transform-origin:50px 44px}
+.demo.cobra .torso{animation:cobra 2s ease-in-out infinite;transform-origin:50px 61px}
+.demo.knee .leg1{animation:knee 2s ease-in-out infinite;transform-origin:50px 61px}
+.demo.bridge .hips{animation:bridge 1.8s ease-in-out infinite;transform-origin:50px 61px}
+.demo.bird .arm1{animation:reach 2s ease-in-out infinite alternate;transform-origin:50px 37px}
+.demo.bird .leg1{animation:reachLeg 2s ease-in-out infinite alternate;transform-origin:50px 61px}
+.demo.wall .arm1{animation:wall 2s ease-in-out infinite alternate;transform-origin:50px 37px}
+.demo.wall .arm2{animation:wall 2s ease-in-out infinite alternate;transform-origin:50px 37px}
+.demo .hint{position:absolute;right:8px;bottom:6px;font-size:9px;color:#80bce5;letter-spacing:.08em}
+@keyframes stepA{to{transform:rotate(25deg)}}@keyframes stepB{to{transform:rotate(-25deg)}}
+@keyframes bend{0%,100%{transform:rotate(0)}50%{transform:rotate(38deg)}}
+@keyframes headTilt{0%,100%{transform:translate(0,0)}50%{transform:translate(12px,10px)}}
+@keyframes breathe{50%{transform:scaleY(1.04)}}
+@keyframes cobra{0%,100%{transform:rotate(-5deg)}50%{transform:rotate(-28deg)}}
+@keyframes knee{0%,100%{transform:rotate(0)}50%{transform:rotate(-70deg)}}
+@keyframes bridge{0%,100%{transform:translateY(0)}50%{transform:translateY(-13px)}}
+@keyframes reach{to{transform:rotate(-55deg)}}@keyframes reachLeg{to{transform:rotate(35deg)}}
+@keyframes wall{to{transform:rotate(-65deg)}}
+@media(prefers-reduced-motion:reduce){.demo *{animation:none!important}}
 </style></head><body>
 <header><div class="brand">HEIGHT JOURNEY · DAILY GROWTH HABITS</div><div class="hero">BUILD GOOD<br><span>DAILY HABITS.</span></div><div class="sub">Track your routine, sleep, nutrition and measurements. Healthy habits support development — they cannot guarantee extra height.</div></header>
 <div class="wrap">
@@ -24,7 +56,9 @@
 const exercises=[['Walk in place','Warm up gently',180,'3 min'],['Cat–cow','Slow, comfortable spinal movement',60,'2 min'],["Child’s pose",'Relax and breathe',30,'2 × 30 sec'],['Gentle cobra','Only if comfortable; do not force your back',15,'3 × 15 sec'],['Knee to chest','One leg at a time, gently',20,'2 × 20 sec'],['Glute bridges','Controlled movement',45,'3 × 12 reps'],['Bird-dog','Keep hips level',45,'2 × 10 each side'],['Wall angels','Move within a pain-free range',45,'2 × 10'],['Relaxed lying','Knees bent, breathe slowly',180,'3 min']];
 let current=0,remaining=30,interval=null,water=+(localStorage.water||0),sessions=+(localStorage.sessions||0);
 function show(id,el){document.querySelectorAll('body > .wrap > section').forEach(s=>s.classList.add('hidden'));document.getElementById(id).classList.remove('hidden');document.querySelectorAll('.tabs button').forEach(b=>b.classList.remove('active'));if(el)el.classList.add('active');if(id==='progress')renderHistory()}
-function renderExercises(){document.getElementById('exerciseList').innerHTML=exercises.map((e,i)=>'<div class="exercise"><div class="row"><div><strong>'+(i+1)+'. '+e[0]+'</strong><small>'+e[1]+'</small></div><span class="pill">'+e[3]+'</span></div></div>').join('')}
+const demoTypes=['walk','bend','hold','cobra','knee','bridge','bird','wall','hold'];
+function demoSvg(type){return '<div class="demo '+type+'"><svg viewBox="0 0 100 82" role="img" aria-label="Animated exercise illustration"><path class="floor" d="M8 72H92"/><circle class="head" cx="50" cy="19" r="7"/><g class="torso"><path class="person" d="M50 28L50 48"/></g><g class="hips"><path class="person" d="M50 48L50 61"/></g><path class="person arm1" d="M50 34L35 45L27 53"/><path class="person arm2" d="M50 34L65 45L73 53"/><path class="person leg1" d="M50 61L39 72"/><path class="person leg2" d="M50 61L62 72"/></svg><span class="hint">LOOPING DEMO</span></div>'}
+function renderExercises(){document.getElementById('exerciseList').innerHTML=exercises.map((e,i)=>'<div class="exercise"><div class="row"><div><strong>'+(i+1)+'. '+e[0]+'</strong><small>'+e[1]+'</small></div><span class="pill">'+e[3]+'</span></div>'+demoSvg(demoTypes[i])+'</div>').join('')}
 function nextExercise(){current=(current+1)%exercises.length;remaining=exercises[current][2];renderTimer()}
 function renderTimer(){let m=Math.floor(remaining/60),s=remaining%60;document.getElementById('timer').textContent=String(m).padStart(2,'0')+':'+String(s).padStart(2,'0')}
 function timerControl(){if(interval){clearInterval(interval);interval=null;return}interval=setInterval(()=>{remaining--;if(remaining<=0){clearInterval(interval);interval=null;nextExercise()}renderTimer()},1000)}
