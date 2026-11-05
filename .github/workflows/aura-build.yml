@@ -1,7 +1,33 @@
-name: AURA build
-on: push
+name: AURA Music APK
+on:
+  push:
+    branches:
+      - aura-music-build
+    paths:
+      - 'aura-music/**'
+      - '.github/workflows/aura-build.yml'
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout AURA source
+        uses: actions/checkout@v4
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Build debug APK
+        run: gradle -p aura-music assembleDebug
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: AURA-Music-1.2-debug
+          path: aura-music/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
