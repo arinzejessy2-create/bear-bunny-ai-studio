@@ -1,21 +1,16 @@
-# JESSY 8.0 — Deep Search
+# HEIGHT JOURNEY
 
-JESSY is a dark, mobile-first search interface backed by a self-hosted SearXNG instance. It searches public web sources only.
+Android home-routine and wellbeing tracker with a black / electric-blue interface.
 
-## Run
-```sh
-docker compose up --build
-```
-Open http://localhost:3000. The Node service expects SearXNG at `http://searxng:8080`.
+## Features
+- 10:00 AM workout and 10:00 PM sleep reminders (Android notifications)
+- Guided mobility and posture routine with timer
+- Height measurement history saved locally
+- Sleep duration tracker
+- Food checklist and water counter
+- Evidence-based growth information and a clear note that adult-height predictions are uncertain
 
-## Modes
-Deep Search fans out across general web, videos, science, news and files, then deduplicates URLs. Individual modes query the corresponding SearXNG category.
+## Build
+GitHub Actions builds a debug APK on pushes to `android/**` or manual workflow dispatch. Open Actions → Build HEIGHT JOURNEY APK → latest successful run → Artifacts → HEIGHT-JOURNEY-debug-apk.
 
-## Android
-Open `android/` in Android Studio and build the debug APK. Set Gradle property `JESSY_API_BASE_URL` to the deployed HTTPS backend URL before building. GitHub Actions can build the APK and upload it as an artifact.
-
-## Proxy limits
-The Android WebView can use a user-supplied HTTP proxy host and port. No proxy servers, credentials, free country exit nodes, or VPN are bundled. A country selector alone cannot change IP location. The app checks its public egress IP before reporting a verified connection. This affects only JESSY's WebView, not the whole phone. SOCKS5 and authenticated proxies are not supported by this wrapper.
-
-## Status
-The repository contains source code and CI build workflow. A successful CI run and real-device test are required before calling an APK verified.
+The debug APK is installable for testing. A signed release build requires a private signing key and should be configured separately.
