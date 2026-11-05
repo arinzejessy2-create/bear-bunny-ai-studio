@@ -1,9 +1,9 @@
-name: Build HEIGHT JOURNEY APK
+name: Build AURA Music APK
 on:
   workflow_dispatch:
   push:
     paths:
-      - 'android/**'
+      - 'aura-source.zip.b64'
       - '.github/workflows/android-apk.yml'
 jobs:
   build:
@@ -17,11 +17,17 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
+      - name: Prepare AURA Music project
+        run: |
+          rm -rf android
+          mkdir -p android
+          base64 -d aura-source.zip.b64 > /tmp/aura-source.zip
+          unzip -q /tmp/aura-source.zip -d android
       - name: Build debug APK
         working-directory: android
-        run: gradle assembleDebug
+        run: gradle assembleDebug --stacktrace
       - uses: actions/upload-artifact@v4
         with:
-          name: HEIGHT-JOURNEY-debug-apk
+          name: AURA-Music-debug-apk
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
