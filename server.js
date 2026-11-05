@@ -1,0 +1,16 @@
+const express=require('express');
+const path=require('path');
+const app=express();
+const PORT=Number(process.env.PORT||3000);
+const SEARXNG_URL=(process.env.SEARXNG_URL||'http://localhost:8080').replace(/\/+$/,'');
+const TIMEOUT=18000;
+app.disable('x-powered-by');
+app.use((req,res,next)=>{res.setHeader('X-Content-Type-Options','nosniff');res.setHeader('Referrer-Policy','no-referrer');res.setHeader('X-Frame-Options','DENY');next()});
+app.get('/api/health',async(_req,res)=>{try{const c=new AbortController(),t=setTimeout(()=>c.abort(),3500);try{const r=await fetch(SEARXNG_URL,{signal:c.signal});res.status(r.ok?200:503).json({ok:r.ok,backend:r.ok?'reachable':'unavailable'})}finally{clearTimeout(t)}}catch{res.status(503).json({ok:false,backend:'unreachable'})}});
+function clean(x){try{const u=new URL(x.url);if(!['http:','https:'].includes(u.protocol))return null;return{title:String(x.title||u.hostname).slice(0,250),url:u.href,host:u.hostname,content:String(x.content||'').slice(0,600),engine:String(x.engine||'')}}catch{return null}}
+async function search(q,cat){const u=new URL('/search',SEARXNG_URL);u.searchParams.set('q',q);u.searchParams.set('format','json');u.searchParams.set('categories',cat);const c=new AbortController(),t=setTimeout(()=>c.abort(),TIMEOUT);try{const r=await fetch(u,{signal:c.signal,headers:{Accept:'application/json'}});if(!r.ok)throw Error('SearXNG HTTP '+r.status);const d=await r.json();if(!Array.isArray(d.results))throw Error('SearXNG JSON output is not enabled');return d.results.map(clean).filter(Boolean)}finally{clearTimeout(t)}}
+app.get('/api/search',async(req,res)=>{const q=String(req.query.q||'').trim().slice(0,300),cat=String(req.query.category||'general');const allowed=['general','videos','news','science','files','images'];if(!q)return res.status(400).json({error:'Enter a search query'});if(!allowed.includes(cat))return res.status(400).json({error:'Unsupported category'});try{res.set('Cache-Control','no-store');res.json({query:q,results:(await search(q,cat)).slice(0,40)})}catch(e){res.status(502).json({error:e.message||'Search backend unavailable'})}});
+app.get('/api/deep-search',async(req,res)=>{const q=String(req.query.q||'').trim().slice(0,250);if(!q)return res.status(400).json({error:'Enter a topic'});const jobs=[['general',q],['videos',q],['science',q],['news',q],['files',q+' filetype:pdf OR filetype:doc']];const done=await Promise.allSettled(jobs.map(x=>search(x[1],x[0])));const map=new Map();done.forEach((v,i)=>{if(v.status==='fulfilled')v.value.forEach(x=>{const k=x.url.split('#')[0].replace(/\/$/,'');if(!map.has(k))map.set(k,{...x,foundIn:[]});map.get(k).foundIn.push(jobs[i][0])})});const results=[...map.values()].sort((a,b)=>b.foundIn.length-a.foundIn.length).slice(0,60);if(!results.length)return res.status(502).json({error:'No search categories responded. Check SearXNG.'});res.set('Cache-Control','no-store');res.json({query:q,results,categories:done.map((x,i)=>({category:jobs[i][0],ok:x.status==='fulfilled'}))})});
+app.use(express.static(path.join(__dirname,'public')));
+app.get('*',(_req,res)=>res.sendFile(path.join(__dirname,'public','index.html')));
+app.listen(PORT,'0.0.0.0',()=>console.log('JESSY 8.0 listening on '+PORT));

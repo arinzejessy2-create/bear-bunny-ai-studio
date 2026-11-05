@@ -1,0 +1,18 @@
+services:
+  searxng:
+    image: searxng/searxng:latest
+    volumes:
+      - ./searxng/settings.yml:/etc/searxng/settings.yml:ro
+    environment:
+      - SEARXNG_BASE_URL=http://localhost:8080/
+    restart: unless-stopped
+  jessy:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - SEARXNG_URL=http://searxng:8080
+    depends_on:
+      - searxng
+    restart: unless-stopped
