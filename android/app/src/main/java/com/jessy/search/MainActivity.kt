@@ -48,6 +48,7 @@ class MainActivity : ComponentActivity() {
         web.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
                 val uri = request?.url ?: return true
+                if (uri.scheme == "jessy" && uri.host == "retry") { loadHome(); return true }
                 return uri.scheme != "https" && uri.scheme != "http"
             }
 
